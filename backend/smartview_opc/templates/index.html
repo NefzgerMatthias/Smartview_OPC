@@ -1,91 +1,57 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-  <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>SmartView OPC</title>
-
-  <!-- Bootstrap (einfach & responsive) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-
-  <link rel="stylesheet" href="{{ url_for('static', filename='assets/css/style.css') }}">
+    <meta charset="UTF-8">
+    <title>Pneumatik Steuerung Monitor</title>
+    <style>
+        body { font-family: sans-serif; background: #222; color: white; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
+        .card { background: #333; padding: 15px; border-radius: 8px; border-left: 5px solid #555; }
+        .analog-card { border-left-color: #007bff; }
+        .status { display: flex; justify-content: space-between; margin-top: 10px; }
+        .led { width: 20px; height: 20px; border-radius: 50%; background: #444; display: inline-block; }
+        .led.active { background: #00ff00; box-shadow: 0 0 10px #00ff00; }
+        .bar-container { background: #444; height: 20px; width: 100%; border-radius: 10px; margin-top: 10px; overflow: hidden; }
+        .bar { background: #007bff; height: 100%; transition: width 0.3s; }
+    </style>
 </head>
 <body>
-  <header class="container py-4">
-    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2">
-      <div>
-        <h1 class="h3 mb-1">SmartView OPC</h1>
-        <div class="text-body-secondary">Live Prozessdaten via OPC UA → REST → Web</div>
-      </div>
+    <h1>Maschinenstatus (Live)</h1>
+    <div class="grid" id="dashboard">Lade Sensordaten...</div>
 
-      <div class="text-end">
-        <div class="small text-body-secondary">Status</div>
-        <div id="statusBadge" class="badge text-bg-secondary">Unbekannt</div>
-      </div>
-    </div>
-  </header>
-
-  <main class="container pb-5">
-    <div class="row g-3">
-      <div class="col-12 col-lg-8">
-        <div class="card shadow-sm">
-          <div class="card-header d-flex align-items-center justify-content-between">
-            <strong>Tags</strong>
-            <div class="small text-body-secondary">
-              Update: <span id="lastUpdate">—</span>
-            </div>
-          </div>
-          <div class="card-body">
-            <div id="tagGrid" class="tag-grid">
-              <!-- Cards werden per JS erzeugt -->
-            </div>
-          </div>
-        </div>
-      </div>
-
-      <div class="col-12 col-lg-4">
-        <div class="card shadow-sm">
-          <div class="card-header">
-            <strong>Einstellungen</strong>
-          </div>
-          <div class="card-body">
-            <label class="form-label" for="backendUrl">Backend URL</label>
-            <input id="backendUrl" class="form-control" type="text" value="http://127.0.0.1:5000" />
-
-            <div class="mt-3">
-              <label class="form-label" for="pollMs">Polling (ms)</label>
-              <input id="pollMs" class="form-control" type="number" min="200" step="100" value="1000" />
-              <div class="form-text">Empfohlen: 500–1000 ms</div>
-            </div>
-
-            <div class="mt-3 d-flex gap-2">
-              <button id="btnStart" class="btn btn-primary w-100">Start</button>
-              <button id="btnStop" class="btn btn-outline-secondary w-100" disabled>Stop</button>
-            </div>
-
-            <hr>
-            <div class="small text-body-secondary">
-              Tipp: Wenn ihr <code>index.html</code> lokal öffnet, braucht ihr CORS (habt ihr im Backend schon drin).
-            </div>
-          </div>
-        </div>
-
-        <div class="alert alert-secondary mt-3 mb-0">
-          <div class="fw-semibold">To-Dos</div>
-          <ul class="mb-0">
-            <li>Dummy-Tags laufen lassen</li>
-            <li>Später: echte OPC UA NodeIds</li>
-            <li>Später: Farben/Alarme/Grenzwerte</li>
-          </ul>
-        </div>
-      </div>
-    </div>
-  </main>
-
-  <footer class="container pb-4 text-body-secondary small">
-    © SmartView OPC – Schulprojekt
-  </footer>
-
-  <script type="module" src="{{ url_for('static', filename='assets/js/main.js') }}"></script>
+    <script>
+        function update() {
+            fetch('/api/tags')
+                .then(res => res.json())
+                .then(data => {
+                    let html = "";
+                    for (let id in data) {
+                        let item = data[id];
+                        if (item.unit) { // Analogwert
+                            let percent = (item.value / item.max) * 100;
+                            html += `<div class="card analog-card">
+                                <h3>${item.name}</h3>
+                                <div style="font-size: 2em;">${item.value} ${item.unit}</div>
+                                <div class="bar-container"><div class="bar" style="width: ${percent}%"></div></div>
+                            </div>`;
+                        } else { // Zylinder
+                            html += `<div class="card">
+                                <h3>${item.name}</h3>
+                                <div class="status">
+                                    <span>Eingefahren:</span>
+                                    <div class="led ${item.eingefahren ? 'active' : ''}"></div>
+                                </div>
+                                <div class="status">
+                                    <span>Ausgefahren:</span>
+                                    <div class="led ${item.ausgefahren ? 'active' : ''}"></div>
+                                </div>
+                            </div>`;
+                        }
+                    }
+                    document.getElementById('dashboard').innerHTML = html;
+                });
+        }
+        setInterval(update, 500); // Alle 0,5 Sek. aktualisieren
+    </script>
 </body>
 </html>
