@@ -44,6 +44,11 @@ Erreichbar unter:
 ```text
 http://192.168.30.50:5000
 ```
+Nutzername und Passwort der SPS eingeben um verbindung zu Starten:
+```text
+Username : OPC
+Passwort : MTV2426b
+```
 
 
 ## Nutzung über VS Code (Remote)
