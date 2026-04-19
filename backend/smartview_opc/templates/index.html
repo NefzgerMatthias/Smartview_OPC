@@ -2,56 +2,89 @@
 <html lang="de">
 <head>
     <meta charset="UTF-8">
-    <title>Pneumatik Steuerung Monitor</title>
+    <title>SPS Monitor - SmartView</title>
     <style>
-        body { font-family: sans-serif; background: #222; color: white; padding: 20px; }
-        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; }
-        .card { background: #333; padding: 15px; border-radius: 8px; border-left: 5px solid #555; }
-        .analog-card { border-left-color: #007bff; }
-        .status { display: flex; justify-content: space-between; margin-top: 10px; }
-        .led { width: 20px; height: 20px; border-radius: 50%; background: #444; display: inline-block; }
-        .led.active { background: #00ff00; box-shadow: 0 0 10px #00ff00; }
-        .bar-container { background: #444; height: 20px; width: 100%; border-radius: 10px; margin-top: 10px; overflow: hidden; }
-        .bar { background: #007bff; height: 100%; transition: width 0.3s; }
+        body { font-family: 'Segoe UI', sans-serif; background: #121212; color: white; padding: 20px; }
+        .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 15px; }
+        .card { background: #1e1e1e; padding: 20px; border-radius: 10px; border: 1px solid #333; text-align: center; }
+        .active { border-color: #2d6a4f; background: #1b4332; }
+        .inactive { border-color: #641212; background: #441010; }
+        #login-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); display: flex; justify-content: center; align-items: center; z-index: 1000; }
+        .login-box { background: #1e1e1e; padding: 30px; border-radius: 10px; border: 1px solid #007bff; width: 300px; text-align: center; }
+        input { width: 100%; padding: 10px; margin: 10px 0; background: #333; border: 1px solid #444; color: white; border-radius: 5px; }
+        button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        #dashboard { filter: blur(15px); pointer-events: none; }
     </style>
 </head>
 <body>
-    <h1>Maschinenstatus (Live)</h1>
-    <div class="grid" id="dashboard">Lade Sensordaten...</div>
 
-    <script>
-        function update() {
-            fetch('/api/tags')
-                .then(res => res.json())
-                .then(data => {
-                    let html = "";
-                    for (let id in data) {
-                        let item = data[id];
-                        if (item.unit) { // Analogwert
-                            let percent = (item.value / item.max) * 100;
-                            html += `<div class="card analog-card">
-                                <h3>${item.name}</h3>
-                                <div style="font-size: 2em;">${item.value} ${item.unit}</div>
-                                <div class="bar-container"><div class="bar" style="width: ${percent}%"></div></div>
-                            </div>`;
-                        } else { // Zylinder
-                            html += `<div class="card">
-                                <h3>${item.name}</h3>
-                                <div class="status">
-                                    <span>Eingefahren:</span>
-                                    <div class="led ${item.eingefahren ? 'active' : ''}"></div>
-                                </div>
-                                <div class="status">
-                                    <span>Ausgefahren:</span>
-                                    <div class="led ${item.ausgefahren ? 'active' : ''}"></div>
-                                </div>
-                            </div>`;
-                        }
-                    }
-                    document.getElementById('dashboard').innerHTML = html;
-                });
-        }
-        setInterval(update, 500); // Alle 0,5 Sek. aktualisieren
-    </script>
+<div id="login-overlay">
+    <div class="login-box">
+        <h2 style="color: #007bff;">SPS Login</h2>
+        <input type="text" id="user" placeholder="SPS-Nutzername">
+        <input type="password" id="pass" placeholder="SPS-Passwort">
+        <button onclick="submitLogin()">Mit SPS verbinden</button>
+        <p id="msg" style="font-size: 0.8em; margin-top: 10px; color: #888;"></p>
+    </div>
+</div>
+
+<div id="dashboard">
+    <h1>SmartView Live-Monitor</h1>
+    <div id="error-box" style="color: #ffadad; margin-bottom: 20px;"></div>
+    <div class="grid" id="data-grid"></div>
+</div>
+
+<script>
+    function submitLogin() {
+        const username = document.getElementById('user').value;
+        const password = document.getElementById('pass').value;
+        const msg = document.getElementById('msg');
+
+        msg.innerText = "Sende Daten an Backend...";
+
+        fetch('/api/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username, password })
+        })
+        .then(res => res.json())
+        .then(data => {
+            msg.innerText = "Warte auf SPS-Antwort...";
+            // Wir warten 3 Sekunden, damit die SPS Zeit zum Verbinden hat
+            setTimeout(() => {
+                document.getElementById('login-overlay').style.display = 'none';
+                document.getElementById('dashboard').style.filter = 'none';
+                document.getElementById('dashboard').style.pointerEvents = 'all';
+                setInterval(updateData, 500);
+            }, 3000);
+        });
+    }
+
+    function updateData() {
+        fetch('/api/tags')
+            .then(res => res.json())
+            .then(data => {
+                const grid = document.getElementById('data-grid');
+                const errBox = document.getElementById('error-box');
+                
+                if (data.error) {
+                    errBox.innerText = "Status: " + data.error;
+                    return;
+                }
+                errBox.innerText = "Status: Verbunden";
+                
+                let html = "";
+                for (const [key, value] of Object.entries(data)) {
+                    const isBool = typeof value === 'boolean';
+                    const cardClass = isBool ? (value ? 'active' : 'inactive') : '';
+                    html += `<div class="card ${cardClass}">
+                                <div style="font-size: 0.8em; color: #888;">${key}</div>
+                                <div style="font-size: 1.5em; font-weight: bold;">${isBool ? (value ? 'AN' : 'AUS') : value}</div>
+                             </div>`;
+                }
+                grid.innerHTML = html;
+            });
+    }
+</script>
 </body>
 </html>
