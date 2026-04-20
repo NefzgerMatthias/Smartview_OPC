@@ -25,7 +25,7 @@ Euer System liest über den Standard OPC UA Daten von einer Siemens S7-1200 aus 
 Verbindung zum Raspberry Pi (z. B. über VS Code Remote SSH):
 
 ```bash
-pi@192.168.30.50
+pi@[PI Adresse WLAN]
 ```
 Passwort eingeben
 ```bash
@@ -36,7 +36,8 @@ Anwendung starten:
 
 ```bash
 cd Smartview_OPC
-python backend/smartview_opc/app.py
+cd Schwartz_Nefzger_OPC/backend/smartview_opc/
+python app.py
 ```
 
 Erreichbar unter:
